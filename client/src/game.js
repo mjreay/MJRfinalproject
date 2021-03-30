@@ -1,28 +1,10 @@
 /* eslint-disable no-undef */
 // const socket = io();
-let playersList = [];
-let mySocketId = null;
-
-// socket.on("allPlayers", function (payload) {
-//     console.log("list of all current players", payload);
-//     console.log(payload.length);
-// });
-
-// socket.on("newPlayerConnected", function (payload) {
-//     console.log("new player detected clientside. Player obj is:", payload);
-//     playersList = payload;
-//     console.log("local playersList is:", playersList);
-// });
-
-// socket.on("playerDisconnected", function (payload) {
-//     console.log("discnnect notice recieved");
-//     playersList = payload;
-//     console.log("local playersList after delete:", playersList);
-// });
+let playersList = {};
 
 var config = {
     type: Phaser.AUTO,
-    parent: "phaser-example",
+    parent: "gameContainer",
     width: 800,
     height: 600,
     physics: {
@@ -40,8 +22,6 @@ var config = {
 };
 
 var game = new Phaser.Game(config);
-var player;
-var cursors;
 
 function preload() {
     this.load.image("sky", "./assets/sky.png");
@@ -55,44 +35,37 @@ function preload() {
 
 function create() {
     var self = this;
-    this.physics.world.bounds.width = 6000;
-    this.physics.world.bounds.height = 800;
-    this.cameras.main.setBounds(0, 0, 6000, 400);
+    this.physics.world.bounds.width = 12000;
+    this.physics.world.bounds.height = 600;
+    this.cameras.main.setBounds(0, 0, 12000, 300);
 
-    background = this.add.tileSprite(400, 300, 12000, 600, "sky");
-    var groundTile = this.add.tileSprite(50, 580, 12000, 50, "ground");
+    background = this.add.tileSprite(400, 300, 24000, 600, "sky");
+    var groundTile = this.add.tileSprite(50, 580, 24000, 50, "ground");
 
-    var score = 0;
-    var scoreText;
-    scoreText = this.add
-        .text(16, 16, "Score: 0", {
+    var yourScore = 0;
+    var yourScoreText = this.add
+        .text(16, 16, "Your Score: " + yourScore, {
             fontSize: "32px",
             fill: "#252b31",
         })
         .setScrollFactor(0)
-        .setDepth(1);
+        .setDepth(2);
 
-    this.add
-        .text(100, 250, "Catch the stars, avoid the bombs!", {
-            fontSize: "32px",
-            fill: "#f505f3",
+    var otherScore = 0;
+    var otherScoreText = self.add
+        .text(18, 45, "", {
+            fontSize: "20px",
+            fill: "#252b31",
         })
-        .setDepth(1);
+        .setScrollFactor(0)
+        .setDepth(2);
 
-    // console.log(this.cameras.main);
-    // console.log(game.config.width);
-
-    clouds = this.physics.add.group();
-
-    for (var c = 0; c < 20; c++) {
-        clouds
-            .create(
-                Phaser.Math.FloatBetween(50, 6000),
-                Phaser.Math.FloatBetween(50, 350),
-                "cloud"
-            )
-            .setScale(Phaser.Math.FloatBetween(0.3, 0.8));
-    }
+    // this.add
+    //     .text(100, 250, "Catch the stars, avoid the bombs!", {
+    //         fontSize: "32px",
+    //         fill: "#f505f3",
+    //     })
+    //     .setDepth(4);
 
     //// PLAYER 2 and SOCKET IO STUFF
 
@@ -100,139 +73,147 @@ function create() {
 
     this.otherPlayers = this.physics.add.group();
 
+    this.starGroup = this.physics.add.group();
+    this.cloudGroup = this.physics.add.group();
+    this.bombGroup = this.physics.add.group();
+
     this.socket.on("allPlayers", function (payload) {
         console.log("list of all current players", payload);
         console.log(payload);
         playersList = payload;
-        playersList.forEach((arrayElement) => {
-            if (arrayElement.playerName === self.socket.id) {
-                addPlayer(self, arrayElement.playerName);
+        Object.keys(playersList).forEach(function (id) {
+            if (playersList[id].playerId === self.socket.id) {
+                addPlayer(self);
             } else {
-                addOtherPlayers(self, arrayElement.playerName);
+                addOtherPlayers(self, playersList[id]);
             }
         });
     });
 
     this.socket.on("newPlayerConnected", function (payload) {
-        console.log(
-            "new player detected clientside. New player's info is:",
-            payload
+        addOtherPlayers(self, payload);
+    });
+
+    this.socket.on("playerMoved", function (payload) {
+        self.otherPlayers.getChildren().forEach(function (otherPlayer) {
+            if (payload.playerId === otherPlayer.playerId) {
+                otherPlayer.x = payload.x;
+                otherPlayer.y = payload.y;
+            }
+        });
+    });
+
+    this.socket.on("environmentTrigger", function (payload) {
+        starHandler(self, payload.stars);
+        cloudHandler(self, payload.clouds);
+    });
+
+    function cloudHandler(self, cloudPositions) {
+        for (var c = 0; c < cloudPositions.length - 1; c++) {
+            const cloud = self.physics.add
+                .image(cloudPositions[c].x, cloudPositions[c].y, "cloud")
+                .setScale(cloudPositions[c].size)
+                .setDepth(1);
+            cloud.id = c;
+            self.cloudGroup.add(cloud);
+        }
+    }
+
+    function starHandler(self, starPositions) {
+        for (var s = 0; s < starPositions.length - 1; s++) {
+            const star = self.physics.add
+                .image(starPositions[s].x, starPositions[s].y, "star")
+                .setScale(starPositions[s].size)
+                .setDepth(3);
+            star.id = s;
+            self.starGroup.add(star);
+        }
+        self.physics.add.collider(
+            self.player,
+            self.starGroup,
+            function (player, starGroup) {
+                starGroup.disableBody(true, true);
+                yourScore += 10;
+                this.socket.emit("starCollected", {
+                    starId: starGroup.id,
+                    score: yourScore,
+                });
+                yourScoreText.setText("Your Score: " + yourScore);
+                if (yourScore > 100) {
+                    console.log("bombs triggerd");
+                    self.bombGroup
+                        .create(
+                            Phaser.Math.FloatBetween(50, 6000),
+                            Phaser.Math.FloatBetween(50, 550),
+                            "bomb"
+                        )
+                        .setScale(3)
+                        .setBounce(1)
+                        .setCollideWorldBounds(true)
+                        .setVelocity(Phaser.Math.Between(-300, 300), 300);
+                }
+            },
+            null,
+            self
         );
-        // playersList = payload;
-        console.log("local playersList is:", newPlayerId);
-        addOtherPlayers(self, newPlayerId);
+        self.physics.add.collider(
+            self.player,
+            self.bombGroup,
+            function () {
+                console.log("hit by a bomb!", self.bombGroup);
+                this.physics.pause();
+                gameOver = true;
+                background.setTint(0xff0000).setDepth(5);
+
+                this.add
+                    .text(250, 250, "Game Over :(", {
+                        fontSize: "40px",
+                        fill: "#000000",
+                    })
+                    .setDepth(5)
+                    .setScrollFactor(0);
+            },
+            null,
+            self
+        );
+    }
+
+    this.socket.on("starSyncing", function (payload) {
+        self.starGroup.children.entries[payload.starId].disableBody(true, true);
+        otherScore = payload.score;
+        otherScoreText.setText("Opponent's Score: " + otherScore);
     });
 
     this.socket.on("playerDisconnected", function (payload) {
-        console.log("discnnect notice recieved");
-        playersList = payload;
-        console.log("local playersList after delete:", playersList);
+        console.log("disconnect notice recieved");
+        console.log("payload on disconnect is:", payload);
+        self.otherPlayers.getChildren().forEach(function (otherPlayer) {
+            if (payload === otherPlayer.playerId) {
+                otherPlayer.destroy();
+                otherScoreText.setText("");
+            }
+        });
     });
 
-    function addPlayer(self, playerInfo) {
+    function addPlayer(self) {
         self.player = self.physics.add
-            .image(200, 450, "plane")
+            .image(100, 350, "plane")
             .setScale(0.2)
             .setDepth(3)
-            .setCollideWorldBounds(true);
-        // .setGravityY(300)
+            .setCollideWorldBounds(true)
+            .setGravityY(300);
     }
 
     function addOtherPlayers(self, playerInfo) {
         const otherPlayer = self.add
             .sprite(playerInfo.x, playerInfo.y, "planeP2")
             .setScale(0.2);
-        console.log(
-            "player info passed to add other player function:",
-            playerInfo
-        );
-        otherPlayer.playerId = playerInfo;
+        otherPlayer.playerId = playerInfo.playerId;
         self.otherPlayers.add(otherPlayer);
+        otherScoreText.setText("Opponent's Score: " + otherScore);
     }
-    // self.physics.add.existing(this.groundTile, true);
-    // self.physics.add.collider(this.player, self.groundTile);
-    // player = this.physics.add
-    //     .sprite(200, 450, "plane")
-    //     .setScale(0.2)
-    //     .setDepth(3);
-    // this.cameras.main.startFollow(playerOne);
-    // this.physics.add.existing(groundTile, true);
-    // this.physics.add.collider(playerOne, groundTile);
-
-    // self.physics.add.existing(groundTile, true);
-    // self.physics.add.collider(self, groundTile);
-
-    // if (playersList.length < 1) {
-    //     console.log("p2");
-    //     player2 = this.physics.add
-    //         .sprite(200, 250, "planeP2")
-    //         .setScale(0.3)
-    //         .setDepth(3);
-    //     this.physics.add.collider(player2, groundTile);
-    // }
 
     /// END OF SOCKET IO STUFF
-
-    // stars = this.physics.add.group();
-
-    // // stars.children.iterate(function (child) {
-    // //     child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-    // // });
-
-    // for (var s = 0; s < 40; s++) {
-    //     stars
-    //         .create(
-    //             Phaser.Math.FloatBetween(50, 6000),
-    //             Phaser.Math.FloatBetween(50, 550),
-    //             "star"
-    //         )
-    //         .setScale(Phaser.Math.FloatBetween(0.5, 1.5))
-    //         .setBounce(1)
-    //         .setCollideWorldBounds(true)
-    //         .setVelocity(Phaser.Math.Between(-100, 100), 20);
-    // }
-    // this.physics.add.overlap(player, stars, collectStar, null, this);
-    // function collectStar(player, star) {
-    //     star.disableBody(true, true);
-
-    //     score += 10;
-    //     scoreText.setText("Score: " + score);
-
-    //     if (score > 100) {
-    //         bombs
-    //             .create(
-    //                 Phaser.Math.FloatBetween(50, 6000),
-    //                 Phaser.Math.FloatBetween(50, 550),
-    //                 "bomb"
-    //             )
-    //             .setScale(4)
-    //             .setBounce(1)
-    //             .setCollideWorldBounds(true)
-    //             .setVelocity(Phaser.Math.Between(-200, 200), 300);
-    //     }
-    // }
-
-    // bombs = this.physics.add.group();
-    // this.physics.add.collider(bombs, groundTile);
-
-    // this.physics.add.collider(player, bombs, hitBomb, null, this);
-
-    // function hitBomb(player) {
-    //     this.physics.pause();
-
-    //     player.setTint(0xff0000);
-
-    //     gameOver = true;
-
-    //     background.setTint(0xff0000).setDepth(1);
-
-    //     this.add
-    //         .text(250, 250, "Game Over :(", {
-    //             fontSize: "40px",
-    //             fill: "#000000",
-    //         })
-    //         .setDepth(4);
-    // }
 
     // this.anims.create({
     //     key: "left",
@@ -259,7 +240,9 @@ function create() {
 function update() {
     if (this.player) {
         if (this.cursors.right.isDown) {
-            this.player.setVelocityX(450);
+            if (this.cursors.right.isDown && this.cursors.space.isDown) {
+                this.player.setVelocityX(650);
+            } else this.player.setVelocityX(450);
 
             // player.anims.play("right", true);
         } else if (this.cursors.left.isDown) {

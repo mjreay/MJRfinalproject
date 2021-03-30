@@ -20,28 +20,67 @@ server.listen(process.env.PORT || 8080, function () {
 
 let playersList = {};
 
+let score = {
+    P1: 0,
+    P2: 0,
+};
+let starPositions = [];
+let cloudPositions = [];
+
+function starProcessor() {
+    starPositions = [];
+    for (var s = 0; s < 40; s++) {
+        var star = {
+            x: Math.random() * (12800 - 50) + 50,
+            y: Math.random() * (400 - 30) + 30,
+            size: Math.random() * (1.8 - 0.8) + 0.8,
+        };
+        starPositions.push(star);
+    }
+}
+
+function cloudProcessor() {
+    cloudPositions = [];
+    for (var s = 0; s < 30; s++) {
+        var cloud = {
+            x: Math.random() * (12800 - 50) + 50,
+            y: Math.random() * (400 - 30) + 30,
+            size: Math.random() * (0.8 - 0.5) + 0.5,
+        };
+        cloudPositions.push(cloud);
+    }
+}
+
+starProcessor();
+cloudProcessor();
 io.on("connection", (socket) => {
     console.log(`Socket with id of ${socket.id} just connected`);
     playersList[socket.id] = {
-        x: null,
-        y: null,
+        x: 100,
+        y: 450,
         playerId: socket.id,
     };
     socket.emit("allPlayers", playersList);
+    socket.emit("environmentTrigger", {
+        clouds: cloudPositions,
+        stars: starPositions,
+    });
     socket.broadcast.emit("newPlayerConnected", playersList[socket.id]);
-    console.log("PlayersList after add:", playersList);
 
     socket.on("playerMovement", function (movementData) {
         playersList[socket.id].x = movementData.x;
         playersList[socket.id].y = movementData.y;
-        playersList[socket.id].rotation = movementData.rotation;
         socket.broadcast.emit("playerMoved", playersList[socket.id]);
+    });
+
+    socket.on("starCollected", function (payload) {
+        socket.broadcast.emit("starSyncing", payload);
     });
 
     socket.on("disconnect", function () {
         console.log(`socket with the id ${socket.id} is now disconnected`);
+        socket.broadcast.emit("playerDisconnected", socket.id);
         delete playersList[socket.id];
         console.log("PlayersList after delete:", playersList);
-        io.emit("playerDisconnected", playersList);
     });
 });
