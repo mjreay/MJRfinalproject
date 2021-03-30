@@ -29,8 +29,8 @@ function preload() {
     this.load.image("ground", "./assets/ground.png");
     this.load.image("star", "./assets/star.png");
     this.load.image("bomb", "./assets/bomb.png");
-    this.load.image("plane", "./assets/fly.png");
-    this.load.image("planeP2", "./assets/flyP2.png");
+    this.load.image("plane", "./assets/greenplane.png");
+    this.load.image("planeP2", "./assets/blueplane.png");
 }
 
 function create() {
