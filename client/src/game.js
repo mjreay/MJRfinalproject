@@ -14,16 +14,22 @@ var config = {
             gravity: { y: 0 },
         },
     },
-    scene: {
-        preload: preload,
-        create: create,
-        update: update,
-    },
 };
 
 var game = new Phaser.Game(config);
 
+function makeAScene() {
+    console.log("in the make a scence fn");
+    game.scene.add(
+        "letsfly",
+        { preload: preload, create: create, update: update },
+        true
+    );
+}
+makeAScene();
+
 function preload() {
+    console.log("in preload");
     this.load.image("sky", "./assets/sky.png");
     this.load.image("cloud", "./assets/cloud.png");
     this.load.image("ground", "./assets/ground.png");
@@ -31,16 +37,22 @@ function preload() {
     this.load.image("bomb", "./assets/bomb.png");
     this.load.image("plane", "./assets/greenplane.png");
     this.load.image("planeP2", "./assets/blueplane.png");
+    this.load.image("pause", "./assets/pause.png");
+    this.load.image("reset", "./assets/reset.png");
+    this.load.audio("collectStar", "./assets/collectStar.mp3");
+    this.load.audio("lossSound", "./assets/lossSound.mp3");
 }
 
 function create() {
     var self = this;
+    this.socket = io();
+    console.log("in create");
     this.physics.world.bounds.width = 12000;
     this.physics.world.bounds.height = 600;
     this.cameras.main.setBounds(0, 0, 12000, 300);
 
     background = this.add.tileSprite(400, 300, 24000, 600, "sky");
-    var groundTile = this.add.tileSprite(50, 580, 24000, 50, "ground");
+    this.add.tileSprite(50, 580, 24000, 50, "ground");
 
     var yourScore = 0;
     var yourScoreText = this.add
@@ -52,13 +64,32 @@ function create() {
         .setDepth(2);
 
     var otherScore = 0;
-    var otherScoreText = self.add
+    var otherScoreText = this.add
         .text(18, 45, "", {
             fontSize: "20px",
             fill: "#252b31",
         })
         .setScrollFactor(0)
         .setDepth(2);
+
+    this.sound.add("collectStar");
+    this.sound.add("lossSound");
+
+    this.pauseButton = this.add
+        .image(775, 20, "pause")
+        .setInteractive()
+        // .image(775, 20, "pause")
+        .setScrollFactor(0)
+        .on("pointerdown", function () {
+            console.log("pausebutton clicked", self.physics);
+            if (self.physics.world.isPaused) {
+                self.socket.emit("clientResumeGameRequset");
+                self.physics.resume();
+            } else {
+                self.socket.emit("clientPauseGameRequset");
+                self.physics.pause();
+            }
+        });
 
     // this.add
     //     .text(100, 250, "Catch the stars, avoid the bombs!", {
@@ -69,13 +100,12 @@ function create() {
 
     //// PLAYER 2 and SOCKET IO STUFF
 
-    this.socket = io();
-
     this.otherPlayers = this.physics.add.group();
-
     this.starGroup = this.physics.add.group();
-    this.cloudGroup = this.physics.add.group();
+    this.cloudGroup = this.physics.add.staticGroup();
     this.bombGroup = this.physics.add.group();
+
+    console.log("in create ln 103");
 
     this.socket.on("allPlayers", function (payload) {
         console.log("list of all current players", payload);
@@ -103,6 +133,7 @@ function create() {
         });
     });
 
+    console.log("in create ln 131");
     this.socket.on("environmentTrigger", function (payload) {
         starHandler(self, payload.stars);
         cloudHandler(self, payload.clouds);
@@ -119,6 +150,7 @@ function create() {
         }
     }
 
+    this.speedX = 450;
     function starHandler(self, starPositions) {
         for (var s = 0; s < starPositions.length - 1; s++) {
             const star = self.physics.add
@@ -133,7 +165,13 @@ function create() {
             self.starGroup,
             function (player, starGroup) {
                 starGroup.disableBody(true, true);
+                this.sound.play("collectStar");
                 yourScore += 10;
+                if (this.speedX < 800) {
+                    console.log("in if block of speed escalator");
+                    this.speedX = this.speedX + 50;
+                }
+
                 this.socket.emit("starCollected", {
                     starId: starGroup.id,
                     score: yourScore,
@@ -156,22 +194,17 @@ function create() {
             null,
             self
         );
+
         self.physics.add.collider(
             self.player,
             self.bombGroup,
             function () {
                 console.log("hit by a bomb!", self.bombGroup);
                 this.physics.pause();
-                gameOver = true;
-                background.setTint(0xff0000).setDepth(5);
-
-                this.add
-                    .text(250, 250, "Game Over :(", {
-                        fontSize: "40px",
-                        fill: "#000000",
-                    })
-                    .setDepth(5)
-                    .setScrollFactor(0);
+                this.sound.play("lossSound");
+                this.gameOver = true;
+                self.socket.emit("gameOver");
+                gameOverHandler(self);
             },
             null,
             self
@@ -184,9 +217,27 @@ function create() {
         otherScoreText.setText("Opponent's Score: " + otherScore);
     });
 
+    this.socket.on("pauseAll", function () {
+        console.log("pause heard in all");
+        self.physics.pause();
+    });
+
+    this.socket.on("resumeAll", function () {
+        console.log("resume heard in all");
+        self.physics.resume();
+    });
+
+    this.socket.on("gameOver", function () {
+        gameOverHandler();
+    });
+
+    this.socket.on("resetGameCommand", function () {
+        console.log("in reset command clientside");
+        resetGame();
+    });
+
     this.socket.on("playerDisconnected", function (payload) {
         console.log("disconnect notice recieved");
-        console.log("payload on disconnect is:", payload);
         self.otherPlayers.getChildren().forEach(function (otherPlayer) {
             if (payload === otherPlayer.playerId) {
                 otherPlayer.destroy();
@@ -213,6 +264,40 @@ function create() {
         otherScoreText.setText("Opponent's Score: " + otherScore);
     }
 
+    function gameOverHandler(self) {
+        if (!self) {
+            self = this;
+        }
+        background.setTint(0xff0000).setDepth(5);
+        self.add
+            .text(250, 250, "Game Over :(", {
+                fontSize: "40px",
+                fill: "#ffffff",
+            })
+            .setDepth(5)
+            .setScrollFactor(0);
+        self.add
+            .image(400, 350, "reset")
+            .setDepth(5)
+            .setScrollFactor(0)
+            .setInteractive()
+            .on("pointerdown", function () {
+                console.log("reset clicked");
+                self.socket.emit("resetGameRequest");
+                resetGame();
+            });
+    }
+
+    function resetGame() {
+        console.log("reset game function");
+        console.log("this scence in reset fn:", self.scene);
+        this.game.destroy(true, false);
+        playersList = {};
+        game = new Phaser.Game(config);
+        makeAScene();
+        gameOver = false;
+    }
+
     /// END OF SOCKET IO STUFF
 
     // this.anims.create({
@@ -234,15 +319,17 @@ function create() {
     //     frameRate: 10,
     //     repeat: -1,
     // });
+    console.log("player is:", this.player);
     this.cursors = this.input.keyboard.createCursorKeys();
 }
 
 function update() {
     if (this.player) {
+        // console.log("player is:", this.player);
         if (this.cursors.right.isDown) {
             if (this.cursors.right.isDown && this.cursors.space.isDown) {
                 this.player.setVelocityX(650);
-            } else this.player.setVelocityX(450);
+            } else this.player.setVelocityX(this.speedX);
 
             // player.anims.play("right", true);
         } else if (this.cursors.left.isDown) {
@@ -261,8 +348,6 @@ function update() {
             this.player.setVelocityY(230);
         }
         this.cameras.main.startFollow(this.player);
-
-        /// EMITTING OWN MOVEMENT
         var x = this.player.x;
         var y = this.player.y;
         if (
@@ -279,5 +364,4 @@ function update() {
             y: this.player.y,
         };
     }
-    // console.log("my socket id is:", mySocketId);
 }

@@ -20,10 +20,6 @@ server.listen(process.env.PORT || 8080, function () {
 
 let playersList = {};
 
-let score = {
-    P1: 0,
-    P2: 0,
-};
 let starPositions = [];
 let cloudPositions = [];
 
@@ -77,10 +73,38 @@ io.on("connection", (socket) => {
         socket.broadcast.emit("starSyncing", payload);
     });
 
+    socket.on("clientPauseGameRequset", function () {
+        socket.broadcast.emit("pauseAll");
+    });
+
+    socket.on("gameOver", function () {
+        socket.broadcast.emit("gameOver");
+    });
+
+    socket.on("resetGameRequest", function () {
+        console.log("reset game heard in server");
+        starProcessor();
+        cloudProcessor();
+        socket.broadcast.emit("resetGameCommand");
+        // socket.emit("allPlayers", playersList);
+        // socket.broadcast.emit("allPlayers", playersList);
+        socket.emit("environmentTrigger", {
+            clouds: cloudPositions,
+            stars: starPositions,
+        });
+        socket.broadcast.emit("environmentTrigger", {
+            clouds: cloudPositions,
+            stars: starPositions,
+        });
+    });
+
+    socket.on("clientResumeGameRequset", function () {
+        socket.broadcast.emit("resumeAll");
+    });
+
     socket.on("disconnect", function () {
         console.log(`socket with the id ${socket.id} is now disconnected`);
         socket.broadcast.emit("playerDisconnected", socket.id);
         delete playersList[socket.id];
-        console.log("PlayersList after delete:", playersList);
     });
 });
