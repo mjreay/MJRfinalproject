@@ -97,7 +97,7 @@ function runGame() {
         this.load.image("cloud", "./assets/cloud.png");
         this.load.image("ground", "./assets/ground.png");
         this.load.image("star", "./assets/star.png");
-        this.load.image("bomb", "./assets/monkey.png");
+        this.load.image("bomb", "./assets/cow.png");
         this.load.image("plane", "./assets/greenplane.png");
         this.load.image("planeP2", "./assets/blueplane.png");
         this.load.image("pause", "./assets/pause.png");
@@ -233,14 +233,13 @@ function runGame() {
                     });
                     yourScoreText.setText("Your Score: " + yourScore);
                     if (yourScore > 50) {
-                        // console.log("bomb triggerd");
                         self.bombGroup
                             .create(
                                 Phaser.Math.FloatBetween(50, 6000),
                                 Phaser.Math.FloatBetween(50, 550),
                                 "bomb"
                             )
-                            .setScale(0.4)
+                            .setScale(1)
                             .setBounce(1)
                             .setCollideWorldBounds(true)
                             .setVelocity(Phaser.Math.Between(-500, 500), 400);
