@@ -300,7 +300,7 @@ function runGame() {
             self.player = self.physics.add
                 .image(100, 350, "plane")
                 .setScale(0.2)
-                .setDepth(3)
+                .setDepth(5)
                 .setCollideWorldBounds(true)
                 .setGravityY(300);
         }
@@ -309,6 +309,7 @@ function runGame() {
             const otherPlayer = self.add
                 .sprite(playerInfo.x, playerInfo.y, "planeP2")
                 .setScale(0.2);
+                .setDepth(4)
             otherPlayer.playerId = playerInfo.playerId;
             console.log("player info in add other fn:", playerInfo);
             otherPlayerName = playerInfo.playerName;
