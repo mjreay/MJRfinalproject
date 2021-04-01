@@ -53,13 +53,16 @@ winScreen.addEventListener("click", function () {
 });
 
 function scoreBoardGenerator() {
-    for (var i = 0; i < scoresFromServer.length; i++) {
-        scoresList += `<div class="scoreItem">${i + 1} - ${
-            scoresFromServer[i].first
-        } - ${scoresFromServer[i].score}</div>`;
-    }
-    scoresScreen.css("display", "inherit");
-    scoresScreen.html(scoresList);
+    axios.get("/getscores").then((response) => {
+        scoresFromServer = response.data.rows;
+        for (var i = 0; i < scoresFromServer.length; i++) {
+            scoresList += `<div class="scoreItem">${i + 1} - ${
+                scoresFromServer[i].first
+            } - ${scoresFromServer[i].score}</div>`;
+        }
+        scoresScreen.css("display", "inherit");
+        scoresScreen.html(scoresList);
+    });
 }
 
 //// GAME CODE
@@ -124,7 +127,7 @@ function runGame() {
                 fill: "#252b31",
             })
             .setScrollFactor(0)
-            .setDepth(2);
+            .setDepth(4);
 
         var otherScore = 0;
         var otherScoreText = this.add
@@ -133,7 +136,7 @@ function runGame() {
                 fill: "#252b31",
             })
             .setScrollFactor(0)
-            .setDepth(2);
+            .setDepth(4);
 
         this.sound.add("collectStar");
         this.sound.add("lossSound");
@@ -256,7 +259,6 @@ function runGame() {
                     console.log("hit by a bomb!", self.bombGroup);
                     this.physics.pause();
                     this.sound.play("lossSound");
-                    this.gameOver = true;
                     self.socket.emit("gameOver");
                     gameOverHandler("lose");
                 },
@@ -356,8 +358,11 @@ function runGame() {
                 .get(
                     `/newscore?name=${yourName}&score=${yourScore}&socket=${mySocket}`
                 )
-                .then((response) => {
-                    scoresFromServer = response.data.rows;
+                .then(() => {
+                    console.log("score successfully saved");
+                })
+                .catch((err) => {
+                    console.log("error in saving score clientside");
                 });
         }
 

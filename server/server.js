@@ -11,12 +11,26 @@ app.use(express.urlencoded({ extended: false }));
 app.get("/newscore", function (req, res) {
     console.log("ping on new score route");
     const { name, score, socket } = req.query;
-    db.addHighScore(name, score, socket).then(() => {
-        db.getHighScores().then(({ rows }) => {
-            console.log(rows);
-            res.json({ rows });
+    db.addHighScore(name, score, socket)
+        .then(() => {
+            res.sendStatus(200);
+        })
+        .catch((err) => {
+            console.log("error in adding score serverside:", err);
+            res.sendStatus(500);
         });
-    });
+});
+
+app.get("/getscores", function (req, res) {
+    console.log("ping on get top ten scores route");
+    db.getHighScores()
+        .then(({ rows }) => {
+            res.json({ rows });
+        })
+        .catch((err) => {
+            console.log("error in retiriving scores serverside:", err);
+            res.sendStatus(500);
+        });
 });
 
 app.use(express.static(path.join(__dirname, "..", "client")));
@@ -66,6 +80,7 @@ io.on("connection", (socket) => {
         playerId: socket.id,
         playerName: clientName,
     };
+    console.log("clientName is", clientName);
     socket.emit("allPlayers", playersList);
     socket.emit("environmentTrigger", {
         clouds: cloudPositions,
