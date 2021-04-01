@@ -5,11 +5,15 @@ const server = require("http").Server(app);
 const io = require("socket.io")(server);
 const db = require("./db.js");
 
-// app.get("/", function (req, res) {
-//     // just a normal route
-//     res.render("./index.html");
-// });
+app.get("/newscore", function (req, res) {
+    db.addHighScore("bob", 1).then((data) => {
+        db.getHighScores().then((scoredata) => {
+            res.json({ scoredata });
+        });
+    });
+});
 
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "client")));
 app.use(express.static(path.join(__dirname, "..", "client", "public")));
 app.use(express.static(path.join(__dirname, "..", "node_modules")));
@@ -19,7 +23,6 @@ server.listen(process.env.PORT || 8080, function () {
 });
 
 let playersList = {};
-
 let starPositions = [];
 let cloudPositions = [];
 
@@ -51,10 +54,12 @@ starProcessor();
 cloudProcessor();
 io.on("connection", (socket) => {
     console.log(`Socket with id of ${socket.id} just connected`);
+    let clientName = socket.handshake.query.playerName;
     playersList[socket.id] = {
         x: 100,
         y: 450,
         playerId: socket.id,
+        playerName: clientName,
     };
     socket.emit("allPlayers", playersList);
     socket.emit("environmentTrigger", {
@@ -83,8 +88,8 @@ io.on("connection", (socket) => {
 
     socket.on("resetGameRequest", function () {
         console.log("reset game heard in server");
-        starProcessor();
-        cloudProcessor();
+        // starProcessor();
+        // cloudProcessor();
         socket.broadcast.emit("resetGameCommand");
         // socket.emit("allPlayers", playersList);
         // socket.broadcast.emit("allPlayers", playersList);

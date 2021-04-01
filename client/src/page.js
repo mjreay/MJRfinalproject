@@ -1,7 +1,13 @@
-var overlay = document.getElementById("gameOverlay");
+const { default: axios } = require("axios");
 
-overlay.addEventListener("click", function (event) {
+const overlay = document.getElementById("gameOverlay");
+const startButton = document.getElementById("startButton");
+const nameInput = document.getElementById("nameInput");
+
+startButton.addEventListener("click", function (event) {
     event.stopPropagation();
-    console.log("sheep!");
+    event.preventDefault();
+    console.log(nameInput.value);
+
     overlay.style.display = "none";
 });
