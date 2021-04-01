@@ -268,21 +268,18 @@ function runGame() {
                 true,
                 true
             );
-            console.log(payload);
             otherScore = payload.score;
             otherScoreText.setText(`${otherPlayerName}'s Score: ${otherScore}`);
         });
 
         this.socket.on("pauseAll", function () {
             console.log("pause heard in all");
-            // self.physics.pause();
             pauseHandler();
         });
 
         this.socket.on("resumeAll", function () {
             console.log("resume heard in all");
             pauseHandler();
-            // self.physics.resume();
         });
 
         this.socket.on("gameOverYouWon", function () {
@@ -330,9 +327,9 @@ function runGame() {
         };
 
         pauseHandler = function pauseHandler() {
-            console.log("inside pausehandler");
             if (self.physics.world.isPaused) {
                 overlay.style.display = "none";
+                pauseOverlay.style.display = "none";
                 self.physics.resume();
             } else {
                 self.physics.pause();
