@@ -308,8 +308,8 @@ function runGame() {
         function addOtherPlayers(self, playerInfo) {
             const otherPlayer = self.add
                 .sprite(playerInfo.x, playerInfo.y, "planeP2")
-                .setScale(0.2);
-                .setDepth(4)
+                .setScale(0.2)
+                .setDepth(4);
             otherPlayer.playerId = playerInfo.playerId;
             console.log("player info in add other fn:", playerInfo);
             otherPlayerName = playerInfo.playerName;
