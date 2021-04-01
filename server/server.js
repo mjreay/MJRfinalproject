@@ -95,6 +95,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("starCollected", function (payload) {
+        console.log(payload);
         socket.broadcast.emit("starSyncing", payload);
     });
 

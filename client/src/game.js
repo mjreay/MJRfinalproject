@@ -14,7 +14,6 @@ let yourName;
 let otherPlayerName;
 let pauseHandler;
 let pauseEmitter;
-let restartGame;
 let makeAScene;
 let yourScore = 0;
 let mySocket;
@@ -111,12 +110,11 @@ function runGame() {
     function create() {
         var self = this;
         this.socket = io(window.location + "?playerName=" + yourName);
+        // this.socket = io();
         console.log("in create");
         this.physics.world.bounds.width = 12000;
         this.physics.world.bounds.height = 600;
         this.cameras.main.setBounds(0, 0, 12000, 300);
-
-        this.socket.emit;
 
         let background = this.add.tileSprite(400, 300, 24000, 600, "sky");
         this.add.tileSprite(50, 580, 24000, 50, "ground");
@@ -157,6 +155,17 @@ function runGame() {
                 }
             });
 
+        function cloudHandler(self, cloudPositions) {
+            for (var c = 0; c < cloudPositions.length - 1; c++) {
+                const cloud = self.physics.add
+                    .image(cloudPositions[c].x, cloudPositions[c].y, "cloud")
+                    .setScale(cloudPositions[c].size)
+                    .setDepth(1);
+                cloud.id = c;
+                self.cloudGroup.add(cloud);
+            }
+        }
+
         //// PLAYER 2 and SOCKET IO STUFF
 
         this.otherPlayers = this.physics.add.group();
@@ -178,6 +187,11 @@ function runGame() {
             });
         });
 
+        this.socket.on("environmentTrigger", function (payload) {
+            starHandler(self, payload.stars);
+            cloudHandler(self, payload.clouds);
+        });
+
         this.socket.on("newPlayerConnected", function (payload) {
             addOtherPlayers(self, payload);
         });
@@ -190,23 +204,6 @@ function runGame() {
                 }
             });
         });
-
-        console.log("in create ln 131");
-        this.socket.on("environmentTrigger", function (payload) {
-            starHandler(self, payload.stars);
-            cloudHandler(self, payload.clouds);
-        });
-
-        function cloudHandler(self, cloudPositions) {
-            for (var c = 0; c < cloudPositions.length - 1; c++) {
-                const cloud = self.physics.add
-                    .image(cloudPositions[c].x, cloudPositions[c].y, "cloud")
-                    .setScale(cloudPositions[c].size)
-                    .setDepth(1);
-                cloud.id = c;
-                self.cloudGroup.add(cloud);
-            }
-        }
 
         this.speedX = 450;
         function starHandler(self, starPositions) {
@@ -225,10 +222,9 @@ function runGame() {
                     starGroup.disableBody(true, true);
                     this.sound.play("collectStar");
                     yourScore += 10;
-                    if (this.speedX < 800) {
-                        console.log("in if block of speed escalator");
-                        this.speedX += 50;
-                    }
+                    // if (this.speedX < 800) {
+                    //     this.speedX += 50;
+                    // }
 
                     this.socket.emit("starCollected", {
                         starId: starGroup.id,
@@ -268,10 +264,11 @@ function runGame() {
         }
 
         this.socket.on("starSyncing", function (payload) {
-            this.starGroup.children.entries[payload.starId].disableBody(
+            self.starGroup.children.entries[payload.starId].disableBody(
                 true,
                 true
             );
+            console.log(payload);
             otherScore = payload.score;
             otherScoreText.setText(`${otherPlayerName}'s Score: ${otherScore}`);
         });
