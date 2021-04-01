@@ -243,7 +243,7 @@ function runGame() {
                             .setCollideWorldBounds(true)
                             .setVelocity(Phaser.Math.Between(-500, 500), 400);
                     }
-                    if ((yourScore = 200)) {
+                    if ((yourScore == 200)) {
                         self.socket.emit("youWon");
                         gameOverHandler("win");
                     }
