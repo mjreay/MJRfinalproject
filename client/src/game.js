@@ -243,6 +243,10 @@ function runGame() {
                             .setCollideWorldBounds(true)
                             .setVelocity(Phaser.Math.Between(-500, 500), 400);
                     }
+                    if (yourScore > 200) {
+                        self.socket.emit("youWon");
+                        gameOverHandler();
+                    }
                 },
                 null,
                 self
@@ -284,6 +288,10 @@ function runGame() {
 
         this.socket.on("gameOverYouWon", function () {
             gameOverHandler("win");
+        });
+
+        this.socket.on("gameOverYouLost", function () {
+            gameOverHandler();
         });
 
         this.socket.on("playerDisconnected", function (payload) {

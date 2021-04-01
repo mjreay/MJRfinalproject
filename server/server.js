@@ -109,6 +109,10 @@ io.on("connection", (socket) => {
         starProcessor();
     });
 
+    socket.on("youWon", function () {
+        socket.broadcast.emit("gameOverYouLost");
+    });
+
     socket.on("clientResumeGameRequset", function () {
         socket.broadcast.emit("resumeAll");
     });
