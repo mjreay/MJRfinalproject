@@ -12,6 +12,10 @@ h1 {
     text-align: center;
 }
 
+a {
+    text-decoration: none;
+}
+
 #mainPage {
     font-family: "Courier";
     position: relative;
@@ -60,6 +64,10 @@ h1 {
 #gameOverlay h1 {
     font-family: "Courier";
     text-align: center;
+}
+
+#preGame h1 {
+    width: 100%;
     background-color: rgb(9, 62, 122);
 }
 
@@ -91,10 +99,33 @@ form {
 
 #win {
     display: none;
+    width: 100%;
     background-color: green;
 }
 
 #lose {
     display: none;
+    width: 100%;
     background-color: darkred;
+}
+
+#scoresScreen {
+    height: fit-content;
+    max-height: 600px;
+    width: 500px;
+    background-color: rgb(9, 62, 122);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    justify-items: center;
+    overflow: scroll;
+}
+
+.scoreItem {
+    font-family: "Courier";
+    font-size: 1.5em;
+    text-align: center;
+    /* border: 1px solid hotpink; */
+    margin-top: 2px;
+    margin-bottom: 2px;
 }

@@ -5,15 +5,20 @@ const server = require("http").Server(app);
 const io = require("socket.io")(server);
 const db = require("./db.js");
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
 app.get("/newscore", function (req, res) {
-    db.addHighScore("bob", 1).then((data) => {
-        db.getHighScores().then((scoredata) => {
-            res.json({ scoredata });
+    console.log("ping on new score route");
+    const { name, score, socket } = req.query;
+    db.addHighScore(name, score, socket).then(() => {
+        db.getHighScores().then(({ rows }) => {
+            console.log(rows);
+            res.json({ rows });
         });
     });
 });
 
-app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "client")));
 app.use(express.static(path.join(__dirname, "..", "client", "public")));
 app.use(express.static(path.join(__dirname, "..", "node_modules")));
@@ -83,24 +88,9 @@ io.on("connection", (socket) => {
     });
 
     socket.on("gameOver", function () {
-        socket.broadcast.emit("gameOver");
-    });
-
-    socket.on("resetGameRequest", function () {
-        console.log("reset game heard in server");
-        // starProcessor();
-        // cloudProcessor();
-        socket.broadcast.emit("resetGameCommand");
-        // socket.emit("allPlayers", playersList);
-        // socket.broadcast.emit("allPlayers", playersList);
-        socket.emit("environmentTrigger", {
-            clouds: cloudPositions,
-            stars: starPositions,
-        });
-        socket.broadcast.emit("environmentTrigger", {
-            clouds: cloudPositions,
-            stars: starPositions,
-        });
+        socket.broadcast.emit("gameOverYouWon");
+        cloudProcessor();
+        starProcessor();
     });
 
     socket.on("clientResumeGameRequset", function () {

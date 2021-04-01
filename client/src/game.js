@@ -1,6 +1,5 @@
-import axios from "axios";
-
-const mainPage = $("mainPage");
+const mainPage = $("#mainPage");
+const scoresScreen = $("#scoresScreen");
 const overlay = document.getElementById("gameOverlay");
 const pauseOverlay = document.getElementById("pause");
 const preGame = document.getElementById("preGame");
@@ -17,6 +16,11 @@ let pauseHandler;
 let pauseEmitter;
 let restartGame;
 let makeAScene;
+let yourScore = 0;
+let mySocket;
+let scoresFromServer;
+
+let scoresList = "<h1><a href=' / '>Top Scores</a></h1>";
 
 //// UI CODE
 
@@ -24,25 +28,42 @@ startButton.addEventListener("click", function (event) {
     event.preventDefault();
     event.stopPropagation();
     yourName = nameInput.value;
-    console.log(yourName);
-    runGame();
-    preGame.style.display = "none";
-    overlay.style.display = "none";
+    if (yourName) {
+        runGame();
+        preGame.style.display = "none";
+        overlay.style.display = "none";
+    }
 });
 
 pauseOverlay.addEventListener("click", function () {
     pauseEmitter();
+    console.log(mySocket);
 });
 
 loseScreen.addEventListener("click", function () {
-    overlay.style.display = "none";
+    // overlay.style.display = "none";
     loseScreen.style.display = "none";
-    axios.get("/newscore").then((response) => {
-        console.log(response.rows);
-    });
+    scoreBoardGenerator();
 });
 
+winScreen.addEventListener("click", function () {
+    // overlay.style.display = "none";
+    winScreen.style.display = "none";
+    scoreBoardGenerator();
+});
+
+function scoreBoardGenerator() {
+    for (var i = 0; i < scoresFromServer.length; i++) {
+        scoresList += `<div class="scoreItem">${i + 1} - ${
+            scoresFromServer[i].first
+        } - ${scoresFromServer[i].score}</div>`;
+    }
+    scoresScreen.css("display", "inherit");
+    scoresScreen.html(scoresList);
+}
+
 //// GAME CODE
+
 function runGame() {
     var config = {
         type: Phaser.AUTO,
@@ -76,11 +97,10 @@ function runGame() {
         this.load.image("cloud", "./assets/cloud.png");
         this.load.image("ground", "./assets/ground.png");
         this.load.image("star", "./assets/star.png");
-        this.load.image("bomb", "./assets/bomb.png");
+        this.load.image("bomb", "./assets/monkey.png");
         this.load.image("plane", "./assets/greenplane.png");
         this.load.image("planeP2", "./assets/blueplane.png");
         this.load.image("pause", "./assets/pause.png");
-        this.load.image("reset", "./assets/reset.png");
         this.load.audio("collectStar", "./assets/collectStar.mp3");
         this.load.audio("lossSound", "./assets/lossSound.mp3");
     }
@@ -98,7 +118,6 @@ function runGame() {
         let background = this.add.tileSprite(400, 300, 24000, 600, "sky");
         this.add.tileSprite(50, 580, 24000, 50, "ground");
 
-        var yourScore = 0;
         var yourScoreText = this.add
             .text(16, 16, "Your Score: " + yourScore, {
                 fontSize: "32px",
@@ -145,6 +164,7 @@ function runGame() {
         this.socket.on("allPlayers", function (payload) {
             console.log("list of all current players", payload);
             console.log(payload);
+            mySocket = self.socket.id;
             playersList = payload;
             Object.keys(playersList).forEach(function (id) {
                 if (playersList[id].playerId === self.socket.id) {
@@ -212,15 +232,15 @@ function runGame() {
                         score: yourScore,
                     });
                     yourScoreText.setText("Your Score: " + yourScore);
-                    if (yourScore > 100) {
-                        console.log("bomb triggerd");
+                    if (yourScore > 50) {
+                        // console.log("bomb triggerd");
                         self.bombGroup
                             .create(
                                 Phaser.Math.FloatBetween(50, 6000),
                                 Phaser.Math.FloatBetween(50, 550),
                                 "bomb"
                             )
-                            .setScale(3)
+                            .setScale(0.4)
                             .setBounce(1)
                             .setCollideWorldBounds(true)
                             .setVelocity(Phaser.Math.Between(-500, 500), 400);
@@ -239,7 +259,7 @@ function runGame() {
                     this.sound.play("lossSound");
                     this.gameOver = true;
                     self.socket.emit("gameOver");
-                    resetGame();
+                    gameOverHandler("lose");
                 },
                 null,
                 self
@@ -267,13 +287,8 @@ function runGame() {
             // self.physics.resume();
         });
 
-        this.socket.on("gameOver", function () {
-            gameOverHandler();
-        });
-
-        this.socket.on("resetGameCommand", function () {
-            console.log("in reset command clientside");
-            resetGame();
+        this.socket.on("gameOverYouWon", function () {
+            gameOverHandler("win");
         });
 
         this.socket.on("playerDisconnected", function (payload) {
@@ -329,41 +344,22 @@ function runGame() {
             }
         };
 
-        // function gameOverHandler(self) {
-        //     background.setTint(0xff0000).setDepth(5);
-        //     self.add
-        //         .text(250, 250, "Game Over :(", {
-        //             fontSize: "40px",
-        //             fill: "#ffffff",
-        //         })
-        //         .setDepth(5)
-        //         .setScrollFactor(0);
-        //     self.add
-        //         .image(400, 350, "reset")
-        //         .setDepth(5)
-        //         .setScrollFactor(0)
-        //         .setInteractive()
-        //         .on("pointerdown", function () {
-        //             console.log("reset clicked");
-        //             self.socket.emit("resetGameRequest");
-        //             resetGame();
-        //         });
-        // }
-
-        restartGame = function restartGame() {
-            console.log("restart game function");
-            self.scene.destroy();
-        };
-
-        function resetGame() {
-            console.log("reset game function");
-            console.log("this scence in reset fn:", self.scene);
-            self.registry.destroy();
-            self.events.off();
-            self.scene.restart();
+        function gameOverHandler(outcome) {
+            console.log("game over function");
+            self.physics.pause();
             overlay.style.display = "inherit";
-            loseScreen.style.display = "inherit";
-            playersList = {};
+            if (outcome == "win") {
+                winScreen.style.display = "inherit";
+            } else {
+                loseScreen.style.display = "inherit";
+            }
+            axios
+                .get(
+                    `/newscore?name=${yourName}&score=${yourScore}&socket=${mySocket}`
+                )
+                .then((response) => {
+                    scoresFromServer = response.data.rows;
+                });
         }
 
         /// END OF SOCKET IO STUFF
